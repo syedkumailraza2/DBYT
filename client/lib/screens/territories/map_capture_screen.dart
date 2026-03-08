@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/theme/theme.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/territory_service.dart';
+import '../../core/services/background_location_service.dart';
 
 class MapCaptureScreen extends StatefulWidget {
   const MapCaptureScreen({super.key});
@@ -14,15 +15,23 @@ class MapCaptureScreen extends StatefulWidget {
   State<MapCaptureScreen> createState() => _MapCaptureScreenState();
 }
 
-class _MapCaptureScreenState extends State<MapCaptureScreen> {
+class _MapCaptureScreenState extends State<MapCaptureScreen> with WidgetsBindingObserver {
   // Map controller
   GoogleMapController? _mapController;
 
+  // Services
+  late TerritoryService _territoryService;
+  late BackgroundLocationService _bgLocationService;
+
   // Location tracking
-  StreamSubscription<Position>? _positionStream;
   List<LatLng> _pathPoints = [];
   Set<Polyline> _polylines = {};
   Set<Polygon> _polygons = {};
+
+  // Subscriptions
+  StreamSubscription<List<LatLng>>? _pathSubscription;
+  StreamSubscription<int>? _timerSubscription;
+  StreamSubscription<bool>? _trackingSubscription;
 
   // State
   bool _isPermissionGranted = false;
@@ -31,10 +40,6 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
   String _errorMsg = '';
   String _selectedMode = 'running';
   int _elapsedSeconds = 0;
-  Timer? _timer;
-
-  // Services
-  late TerritoryService _territoryService;
 
   // Initial camera position (will be updated to user location)
   static const CameraPosition _initialPosition = CameraPosition(
@@ -43,7 +48,7 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
   );
 
   final List<Map<String, dynamic>> _modes = [
-    {'id': 'walking', 'label': 'Walking', 'icon': Icons.directions_walk},
+    {'id': 'jogging', 'label': 'Jogging', 'icon': Icons.directions_walk},
     {'id': 'running', 'label': 'Running', 'icon': Icons.directions_run},
     {'id': 'cycling', 'label': 'Cycling', 'icon': Icons.directions_bike},
   ];
@@ -51,49 +56,144 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _territoryService = TerritoryService(ApiService());
+    _bgLocationService = BackgroundLocationService();
     _initialize();
   }
 
   @override
   void dispose() {
-    _positionStream?.cancel();
-    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _pathSubscription?.cancel();
+    _timerSubscription?.cancel();
+    _trackingSubscription?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app comes back to foreground, refresh the path from service
+    if (state == AppLifecycleState.resumed && _isTracking) {
+      setState(() {
+        _pathPoints = _bgLocationService.pathPoints;
+        _elapsedSeconds = _bgLocationService.elapsedSeconds;
+        _updatePolylines();
+      });
+    }
+  }
+
   Future<void> _initialize() async {
+    await _bgLocationService.initialize();
     await _requestLocationPermission();
+    _setupSubscriptions();
+  }
+
+  void _setupSubscriptions() {
+    _pathSubscription = _bgLocationService.pathStream.listen((points) {
+      if (mounted) {
+        setState(() {
+          _pathPoints = points;
+          _updatePolylines();
+        });
+
+        // Keep camera centered on latest point
+        if (points.isNotEmpty && _mapController != null) {
+          _mapController!.animateCamera(
+            CameraUpdate.newLatLng(points.last),
+          );
+        }
+      }
+    });
+
+    _timerSubscription = _bgLocationService.timerStream.listen((seconds) {
+      if (mounted) {
+        setState(() {
+          _elapsedSeconds = seconds;
+        });
+      }
+    });
+
+    _trackingSubscription = _bgLocationService.trackingStream.listen((isTracking) {
+      if (mounted) {
+        setState(() {
+          _isTracking = isTracking;
+        });
+      }
+    });
   }
 
   Future<void> _requestLocationPermission() async {
     print('[MAP_CAPTURE] Requesting location permission...');
 
-    var status = await Permission.location.status;
-    print('[MAP_CAPTURE] Current permission status: $status');
-
-    if (!status.isGranted) {
-      status = await Permission.location.request();
-      print('[MAP_CAPTURE] Permission after request: $status');
+    // First check/request basic location permission
+    var locationStatus = await Permission.location.status;
+    if (!locationStatus.isGranted) {
+      locationStatus = await Permission.location.request();
     }
 
-    if (!mounted) return;
+    if (!locationStatus.isGranted) {
+      if (mounted) {
+        setState(() {
+          _errorMsg = 'Location permission is required to capture territories.';
+          _isPermissionGranted = false;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
-    if (status.isGranted) {
+    // Request background location permission (Android only shows this after basic permission)
+    var bgStatus = await Permission.locationAlways.status;
+    if (!bgStatus.isGranted) {
+      // Show explanation dialog before requesting
+      if (mounted) {
+        final shouldRequest = await _showBackgroundPermissionDialog();
+        if (shouldRequest) {
+          bgStatus = await Permission.locationAlways.request();
+        }
+      }
+    }
+
+    // Request notification permission for Android 13+
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
+
+    if (mounted) {
       setState(() {
         _isPermissionGranted = true;
         _isLoading = false;
       });
-      print('[MAP_CAPTURE] Permission granted');
-    } else {
-      setState(() {
-        _errorMsg = 'Location permission is required to capture territories.';
-        _isPermissionGranted = false;
-        _isLoading = false;
-      });
-      print('[MAP_CAPTURE] Permission denied');
+      print('[MAP_CAPTURE] Permission granted (background: ${bgStatus.isGranted})');
     }
+  }
+
+  Future<bool> _showBackgroundPermissionDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Background Location'),
+        content: const Text(
+          'To capture territories even when the app is minimized, please allow "Always" location access in the next prompt.\n\n'
+          'This lets you:\n'
+          '• Lock your phone while tracking\n'
+          '• Use other apps during capture\n'
+          '• See tracking status in notifications',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Skip'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    ) ?? false;
   }
 
   Future<void> _goToUserLocation() async {
@@ -117,8 +217,9 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
     }
   }
 
-  void _startTracking() {
+  Future<void> _startTracking() async {
     print('[MAP_CAPTURE] Starting tracking...');
+
     setState(() {
       _isTracking = true;
       _pathPoints = [];
@@ -127,35 +228,7 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
       _elapsedSeconds = 0;
     });
 
-    // Start timer
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _elapsedSeconds++;
-      });
-    });
-
-    // Start location stream
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 2, // Update every 2 meters
-    );
-
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen((Position position) {
-      print('[MAP_CAPTURE] New position: ${position.latitude}, ${position.longitude}');
-
-      final newPoint = LatLng(position.latitude, position.longitude);
-      setState(() {
-        _pathPoints.add(newPoint);
-        _updatePolylines();
-      });
-
-      // Keep camera centered on user
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(newPoint),
-      );
-    });
+    await _bgLocationService.startTracking(_selectedMode);
   }
 
   void _updatePolylines() {
@@ -171,13 +244,14 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
     };
   }
 
-  void _stopTracking() {
+  Future<void> _stopTracking() async {
     print('[MAP_CAPTURE] Stopping tracking...');
-    _positionStream?.cancel();
-    _timer?.cancel();
+
+    final path = await _bgLocationService.getPathAndStop();
 
     setState(() {
       _isTracking = false;
+      _pathPoints = path;
     });
 
     if (_pathPoints.length < 3) {
@@ -355,18 +429,19 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Stop Tracking?'),
-        content: const Text('You are currently tracking. Are you sure you want to exit?'),
+        content: const Text('You are currently tracking. Are you sure you want to exit? Your progress will be lost.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              _positionStream?.cancel();
-              _timer?.cancel();
-              Navigator.pop(context);
+              await _bgLocationService.getPathAndStop();
+              if (mounted) {
+                Navigator.pop(context);
+              }
             },
             child: Text(
               'Exit',
@@ -441,7 +516,7 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
         ),
 
         // Mode selector (only when not tracking)
-        if (!_isTracking)
+        if (!_isTracking && _polygons.isEmpty)
           Positioned(
             top: 16,
             left: 16,
@@ -456,6 +531,43 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
             left: 16,
             right: 16,
             child: _buildTrackingStats(),
+          ),
+
+        // Background tracking indicator
+        if (_isTracking)
+          Positioned(
+            top: 100,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.ctaGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 8,
+                      height: 8,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Background tracking active',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
 
         // My location button
@@ -474,12 +586,13 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> {
         ),
 
         // Start/Stop button
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 32,
-          child: _buildActionButton(),
-        ),
+        if (_polygons.isEmpty)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 32,
+            child: _buildActionButton(),
+          ),
       ],
     );
   }

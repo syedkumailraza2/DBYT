@@ -70,8 +70,20 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to capture territories while you move.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs access to your location to capture territories while you move.</string>
+	<string>This app needs access to your location to capture territories even when the app is in the background.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs access to your location to capture territories while you move.</string>
+	<string>This app needs access to your location to capture territories even when the app is in the background.</string>
+	<!-- Background modes for location tracking -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	<!-- Background processing -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.example.client.location</string>
+	</array>
 </dict>
 </plist>

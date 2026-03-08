@@ -2,10 +2,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
+  // Singleton instance
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+  ApiService._internal();
+
   // Change this to your server URL
-  static const String baseUrl = 'http://192.168.11.117:8000'; // Android emulator
-  // static const String baseUrl = 'http://localhost:5000'; // iOS simulator
-  // static const String baseUrl = 'http://YOUR_IP:5000'; // Physical device
+  // static const String baseUrl = 'http://192.168.10.65:8000'; // Local server
+  static const String baseUrl = 'https://dbyt.vercel.app'; // Deployed Backend
 
   String? _token;
 
