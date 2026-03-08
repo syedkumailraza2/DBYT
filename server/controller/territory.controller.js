@@ -16,31 +16,53 @@ export const createTerritory = async (req, res) => {
       return res.status(400).json({ message: "Invalid polygon: minimum 4 coordinates required" });
     }
 
-    const first = coordinates[0];
-    const last = coordinates[coordinates.length - 1];
-
+    // Ensure polygon is closed
+    let closedCoords = [...coordinates];
+    const first = closedCoords[0];
+    const last = closedCoords[closedCoords.length - 1];
     if (first[0] !== last[0] || first[1] !== last[1]) {
-      return res.status(400).json({ message: "Path not closed: first and last points must match" });
+      closedCoords.push([...first]);
     }
 
-    console.log("[CREATE_TERRITORY] Calculating area with turf...");
-    const polygon = turf.polygon([coordinates]);
-    const area = turf.area(polygon);
-    console.log("[CREATE_TERRITORY] Area calculated:", area);
+    console.log("[CREATE_TERRITORY] Cleaning polygon with turf...");
+
+    // Create initial polygon for area calculation
+    let polygon = turf.polygon([closedCoords]);
+    let area = turf.area(polygon);
+    console.log("[CREATE_TERRITORY] Initial area:", area);
 
     if (area < 50) {
       return res.status(400).json({ message: "Territory too small: minimum 50 square meters" });
     }
+
+    // Check if polygon is valid (not self-intersecting)
+    // Use convex hull to create a valid polygon from the tracked points
+    // This ensures MongoDB's 2dsphere index can store it
+    console.log("[CREATE_TERRITORY] Creating convex hull for valid polygon...");
+    const points = turf.featureCollection(
+      closedCoords.slice(0, -1).map(coord => turf.point(coord))
+    );
+    const hull = turf.convexHull(points);
+
+    if (!hull) {
+      return res.status(400).json({ message: "Could not create valid territory from points" });
+    }
+
+    // Get the convex hull coordinates
+    const validCoords = hull.geometry.coordinates[0];
+    const validPolygon = turf.polygon([validCoords]);
+    const validArea = turf.area(validPolygon);
+    console.log("[CREATE_TERRITORY] Convex hull area:", validArea);
 
     console.log("[CREATE_TERRITORY] Creating territory in DB...");
     const territory = await Territory.create({
       userId,
       mode,
       timeTaken,
-      area,
+      area: validArea,
       Polygon: {
         type: "Polygon",
-        coordinates: [coordinates]
+        coordinates: [validCoords]
       }
     });
     console.log("[CREATE_TERRITORY] Territory created:", territory._id);
