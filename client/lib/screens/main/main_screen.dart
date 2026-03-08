@@ -16,11 +16,15 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeTab(),
-    TerritoriesTab(),
-    StatsTab(),
-    ProfileTab(),
+  void _navigateToTab(int index) {
+    setState(() => _currentIndex = index);
+  }
+
+  List<Widget> get _screens => [
+    HomeTab(onNavigateToTerritories: () => _navigateToTab(1)),
+    const TerritoriesTab(),
+    const StatsTab(),
+    const ProfileTab(),
   ];
 
   @override

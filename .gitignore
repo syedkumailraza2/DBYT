@@ -24,5 +24,11 @@ Thumbs.db
 dist/
 build/
 
+# Temp files
+*.tmp
+*.tmp.*
+*.bak
+*~
+
 # Claude Code
 .claude/

@@ -2,9 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/theme.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/services/api_service.dart';
+import '../../core/services/territory_service.dart';
+import '../territories/map_capture_screen.dart';
 
-class HomeTab extends StatelessWidget {
-  const HomeTab({super.key});
+class HomeTab extends StatefulWidget {
+  final VoidCallback? onNavigateToTerritories;
+
+  const HomeTab({super.key, this.onNavigateToTerritories});
+
+  @override
+  State<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<HomeTab> {
+  final TerritoryService _territoryService = TerritoryService(ApiService());
+  List<TerritoryData> _recentTerritories = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentTerritories();
+  }
+
+  Future<void> _loadRecentTerritories() async {
+    final result = await _territoryService.getUserTerritories();
+    if (mounted) {
+      setState(() {
+        _recentTerritories = result.territories.take(3).toList();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +70,7 @@ class HomeTab extends StatelessWidget {
                   const SizedBox(height: 24),
                   _buildQuickActions(context),
                   const SizedBox(height: 24),
-                  _buildRecentActivity(),
+                  _buildRecentActivity(context),
                 ],
               ),
             ),
@@ -143,7 +173,14 @@ class HomeTab extends StatelessWidget {
                 icon: Icons.add_location_alt,
                 title: 'Claim Territory',
                 color: AppColors.ctaGreen,
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MapCaptureScreen(),
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 16),
@@ -152,7 +189,9 @@ class HomeTab extends StatelessWidget {
                 icon: Icons.explore,
                 title: 'Explore Map',
                 color: AppColors.ctaBlue,
-                onTap: () {},
+                onTap: () {
+                  widget.onNavigateToTerritories?.call();
+                },
               ),
             ),
           ],
@@ -196,43 +235,140 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentActivity() {
+  Widget _buildRecentActivity(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Recent Activity',
-          style: AppTextStyles.headlineSmall.copyWith(
-            color: AppColors.primaryDark,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent Activity',
+              style: AppTextStyles.headlineSmall.copyWith(
+                color: AppColors.primaryDark,
+              ),
+            ),
+            if (_recentTerritories.isNotEmpty)
+              TextButton(
+                onPressed: () => widget.onNavigateToTerritories?.call(),
+                child: Text(
+                  'See All',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.primaryTeal,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: AppColors.grey100,
-            borderRadius: BorderRadius.circular(16),
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_recentTerritories.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.grey100,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 48,
+                    color: AppColors.grey400,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No recent activity',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.grey500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Start capturing territories!',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.grey400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Column(
+            children: _recentTerritories.map((territory) {
+              return _buildActivityItem(territory);
+            }).toList(),
           ),
-          child: Center(
+      ],
+    );
+  }
+
+  Widget _buildActivityItem(TerritoryData territory) {
+    final IconData modeIcon;
+    switch (territory.mode) {
+      case 'running':
+        modeIcon = Icons.directions_run;
+        break;
+      case 'cycling':
+        modeIcon = Icons.directions_bike;
+        break;
+      default:
+        modeIcon = Icons.directions_walk;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.grey200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.primaryTeal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              modeIcon,
+              color: AppColors.primaryTeal,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.history,
-                  size: 48,
-                  color: AppColors.grey400,
-                ),
-                const SizedBox(height: 12),
                 Text(
-                  'No recent activity',
-                  style: AppTextStyles.bodyMedium.copyWith(
+                  territory.formattedArea,
+                  style: AppTextStyles.labelLarge.copyWith(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${territory.mode.toUpperCase()} • ${territory.formattedTime}',
+                  style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.grey500,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          Icon(
+            Icons.chevron_right,
+            color: AppColors.grey400,
+          ),
+        ],
+      ),
     );
   }
 }

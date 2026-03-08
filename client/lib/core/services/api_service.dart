@@ -11,6 +11,9 @@ class ApiService {
   // static const String baseUrl = 'http://192.168.10.65:8000'; // Local server
   static const String baseUrl = 'https://dbyt.vercel.app'; // Deployed Backend
 
+  // Request timeout duration
+  static const Duration _timeout = Duration(seconds: 30);
+
   String? _token;
 
   void setToken(String? token) {
@@ -38,16 +41,19 @@ class ApiService {
         Uri.parse('$baseUrl$endpoint'),
         headers: _headers,
         body: jsonEncode(body),
-      );
+      ).timeout(_timeout);
       print('[API] Response: ${response.statusCode}');
       print('[API] Response body: ${response.body}');
       return ApiResponse.fromResponse(response);
     } catch (e) {
       print('[API] POST Error: $e');
+      final message = e.toString().contains('TimeoutException')
+          ? 'Request timed out. Please try again.'
+          : 'Network error: ${e.toString()}';
       return ApiResponse(
         success: false,
         statusCode: 0,
-        message: 'Network error: ${e.toString()}',
+        message: message,
       );
     }
   }
@@ -60,16 +66,19 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl$endpoint'),
         headers: _headers,
-      );
+      ).timeout(_timeout);
       print('[API] Response: ${response.statusCode}');
       print('[API] Response body: ${response.body}');
       return ApiResponse.fromResponse(response);
     } catch (e) {
       print('[API] GET Error: $e');
+      final message = e.toString().contains('TimeoutException')
+          ? 'Request timed out. Please try again.'
+          : 'Network error: ${e.toString()}';
       return ApiResponse(
         success: false,
         statusCode: 0,
-        message: 'Network error: ${e.toString()}',
+        message: message,
       );
     }
   }
@@ -80,13 +89,16 @@ class ApiService {
         Uri.parse('$baseUrl$endpoint'),
         headers: _headers,
         body: jsonEncode(body),
-      );
+      ).timeout(_timeout);
       return ApiResponse.fromResponse(response);
     } catch (e) {
+      final message = e.toString().contains('TimeoutException')
+          ? 'Request timed out. Please try again.'
+          : 'Network error: ${e.toString()}';
       return ApiResponse(
         success: false,
         statusCode: 0,
-        message: 'Network error: ${e.toString()}',
+        message: message,
       );
     }
   }
@@ -96,13 +108,16 @@ class ApiService {
       final response = await http.delete(
         Uri.parse('$baseUrl$endpoint'),
         headers: _headers,
-      );
+      ).timeout(_timeout);
       return ApiResponse.fromResponse(response);
     } catch (e) {
+      final message = e.toString().contains('TimeoutException')
+          ? 'Request timed out. Please try again.'
+          : 'Network error: ${e.toString()}';
       return ApiResponse(
         success: false,
         statusCode: 0,
-        message: 'Network error: ${e.toString()}',
+        message: message,
       );
     }
   }

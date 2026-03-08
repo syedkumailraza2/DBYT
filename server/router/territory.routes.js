@@ -12,14 +12,14 @@ import {
 
 const territoryRouter = express.Router();
 
+// Protected routes (must come before wildcard routes)
+territoryRouter.post("/", authenticate, validateTerritory, createTerritory);
+territoryRouter.get("/", authenticate, getUserTerritories);
+territoryRouter.delete("/:territoryId", authenticate, deleteTerritory);
+
 // Public routes
 territoryRouter.get("/all", getAllTerritories);
 territoryRouter.get("/nearby", getNearbyTerritories);
 territoryRouter.get("/:territoryId", getTerritory);
-
-// Protected routes
-territoryRouter.post("/", authenticate, validateTerritory, createTerritory);
-territoryRouter.get("/", authenticate, getUserTerritories);
-territoryRouter.delete("/:territoryId", authenticate, deleteTerritory);
 
 export default territoryRouter;
