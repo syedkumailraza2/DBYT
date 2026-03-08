@@ -4,8 +4,13 @@ import * as turf from "@turf/turf";
 
 export const createTerritory = async (req, res) => {
   try {
+    console.log("[CREATE_TERRITORY] Starting...");
     const userId = req.userId;
     const { coordinates, mode, timeTaken } = req.body;
+
+    console.log("[CREATE_TERRITORY] UserId:", userId);
+    console.log("[CREATE_TERRITORY] Mode:", mode, "TimeTaken:", timeTaken);
+    console.log("[CREATE_TERRITORY] Coordinates count:", coordinates?.length);
 
     if (!coordinates || coordinates.length < 4) {
       return res.status(400).json({ message: "Invalid polygon: minimum 4 coordinates required" });
@@ -18,13 +23,16 @@ export const createTerritory = async (req, res) => {
       return res.status(400).json({ message: "Path not closed: first and last points must match" });
     }
 
+    console.log("[CREATE_TERRITORY] Calculating area with turf...");
     const polygon = turf.polygon([coordinates]);
     const area = turf.area(polygon);
+    console.log("[CREATE_TERRITORY] Area calculated:", area);
 
     if (area < 50) {
       return res.status(400).json({ message: "Territory too small: minimum 50 square meters" });
     }
 
+    console.log("[CREATE_TERRITORY] Creating territory in DB...");
     const territory = await Territory.create({
       userId,
       mode,
@@ -35,17 +43,20 @@ export const createTerritory = async (req, res) => {
         coordinates: [coordinates]
       }
     });
+    console.log("[CREATE_TERRITORY] Territory created:", territory._id);
 
     await User.findByIdAndUpdate(
       userId,
       { $push: { territories: territory._id } }
     );
+    console.log("[CREATE_TERRITORY] User updated");
 
     res.status(201).json({
       message: "Territory captured",
       territory
     });
   } catch (error) {
+    console.error("[CREATE_TERRITORY] Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
