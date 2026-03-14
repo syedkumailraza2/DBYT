@@ -31,8 +31,8 @@ export const createTerritory = async (req, res) => {
     let area = turf.area(polygon);
     console.log("[CREATE_TERRITORY] Initial area:", area);
 
-    if (area < 50) {
-      return res.status(400).json({ message: "Territory too small: minimum 50 square meters" });
+    if (area < 10) {
+      return res.status(400).json({ message: "Territory too small: minimum 10 square meters" });
     }
 
     // Check if polygon is valid (not self-intersecting)
