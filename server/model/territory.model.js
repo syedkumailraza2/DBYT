@@ -8,7 +8,7 @@ const TerritorySchema = new mongoose.Schema({
   },
   mode: {
     type: String,
-    enum: ["running", "jogging", "cycling"]
+    enum: ["walking", "jogging", "running", "cycling"]
   },
   timeTaken: {
     type: Number,

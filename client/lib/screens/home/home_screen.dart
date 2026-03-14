@@ -315,8 +315,11 @@ class _HomeTabState extends State<HomeTab> {
       case 'cycling':
         modeIcon = Icons.directions_bike;
         break;
+      case 'walking':
+        modeIcon = Icons.hiking;
+        break;
       default:
-        modeIcon = Icons.directions_walk;
+        modeIcon = Icons.directions_walk; // jogging
     }
 
     return Container(

@@ -48,6 +48,7 @@ class _MapCaptureScreenState extends State<MapCaptureScreen> with WidgetsBinding
   );
 
   final List<Map<String, dynamic>> _modes = [
+    {'id': 'walking', 'label': 'Walking', 'icon': Icons.hiking},
     {'id': 'jogging', 'label': 'Jogging', 'icon': Icons.directions_walk},
     {'id': 'running', 'label': 'Running', 'icon': Icons.directions_run},
     {'id': 'cycling', 'label': 'Cycling', 'icon': Icons.directions_bike},

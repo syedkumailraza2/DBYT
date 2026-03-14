@@ -39,8 +39,8 @@ export const validateTerritory = (req, res, next) => {
     return res.status(400).json({ message: "Coordinates array is required" });
   }
 
-  if (!mode || !["running", "jogging", "cycling"].includes(mode)) {
-    return res.status(400).json({ message: "Mode must be running, jogging, or cycling" });
+  if (!mode || !["walking", "jogging", "running", "cycling"].includes(mode)) {
+    return res.status(400).json({ message: "Mode must be walking, jogging, running, or cycling" });
   }
 
   if (!timeTaken || typeof timeTaken !== "number" || timeTaken <= 0) {

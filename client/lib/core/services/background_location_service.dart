@@ -219,6 +219,9 @@ class TrackingStats {
       case 'cycling':
         met = 7.5; // Cycling moderate effort
         break;
+      case 'walking':
+        met = 3.8; // Walking moderate pace
+        break;
       default:
         met = 7.0;
     }

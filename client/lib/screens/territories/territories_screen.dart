@@ -224,7 +224,13 @@ class _TerritoriesTabState extends State<TerritoriesTab> {
     IconData modeIcon;
     switch (territory.mode) {
       case 'walking':
+        modeIcon = Icons.hiking;
+        break;
+      case 'jogging':
         modeIcon = Icons.directions_walk;
+        break;
+      case 'running':
+        modeIcon = Icons.directions_run;
         break;
       case 'cycling':
         modeIcon = Icons.directions_bike;

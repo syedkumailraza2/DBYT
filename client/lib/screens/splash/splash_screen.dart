@@ -211,7 +211,6 @@ class _SplashScreenState extends State<SplashScreen>
     return AnimatedBuilder(
       animation: Listenable.merge([
         _logoController,
-        _shimmerController,
         _pulseController,
       ]),
       builder: (context, child) {
@@ -226,10 +225,10 @@ class _SplashScreenState extends State<SplashScreen>
                 children: [
                   // Glow effect
                   Container(
-                    width: 180,
-                    height: 80,
+                    width: 140,
+                    height: 140,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.primaryTeal.withValues(alpha: 0.5),
@@ -245,36 +244,25 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
 
-                  // Logo with shimmer
-                  ShaderMask(
-                    shaderCallback: (bounds) {
-                      return LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: const [
-                          Colors.white,
-                          Colors.white,
-                          Color(0xFF64B5F6),
-                          Colors.white,
-                          Colors.white,
-                        ],
-                        stops: [
-                          0.0,
-                          _shimmerAnimation.value - 0.3,
-                          _shimmerAnimation.value,
-                          _shimmerAnimation.value + 0.3,
-                          1.0,
-                        ].map((s) => s.clamp(0.0, 1.0)).toList(),
-                      ).createShader(bounds);
-                    },
-                    blendMode: BlendMode.srcIn,
-                    child: Text(
-                      'DBYT',
-                      style: AppTextStyles.displayLarge.copyWith(
-                        color: AppColors.white,
-                        fontSize: 64,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 8,
+                  // App icon
+                  Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 25,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: Image.asset(
+                        'assets/icon/app_icon.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),

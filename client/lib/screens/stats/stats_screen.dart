@@ -333,8 +333,16 @@ class _StatsTabState extends State<StatsTab> with SingleTickerProviderStateMixin
     Color color;
     switch (mode.mode) {
       case 'walking':
-        icon = Icons.directions_walk;
+        icon = Icons.hiking;
         color = AppColors.ctaGreen;
+        break;
+      case 'jogging':
+        icon = Icons.directions_walk;
+        color = AppColors.ctaOrange;
+        break;
+      case 'running':
+        icon = Icons.directions_run;
+        color = AppColors.ctaRed;
         break;
       case 'cycling':
         icon = Icons.directions_bike;
