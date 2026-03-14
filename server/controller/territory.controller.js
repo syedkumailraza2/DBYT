@@ -42,7 +42,7 @@ export const createTerritory = async (req, res) => {
     const points = turf.featureCollection(
       closedCoords.slice(0, -1).map(coord => turf.point(coord))
     );
-    const hull = turf.convexHull(points);
+    const hull = turf.convex(points);
 
     if (!hull) {
       return res.status(400).json({ message: "Could not create valid territory from points" });
